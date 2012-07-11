@@ -134,7 +134,7 @@ static void apply_core_config(void)
 
 static void tegra_cpuquiet_work_func(struct work_struct *work)
 {
-	bool update_cr_config = false;
+	bool state_changed = false;
 
 	mutex_lock(tegra3_cpu_lock);
 
@@ -148,7 +148,7 @@ static void tegra_cpuquiet_work_func(struct work_struct *work)
 					/*catch-up with governor target speed */
 					tegra_cpu_set_speed_cap(NULL);
 					/* process pending core requests*/
-					update_cr_config = true;
+					state_changed = true;
 				}
 			}
 			break;
@@ -159,6 +159,7 @@ static void tegra_cpuquiet_work_func(struct work_struct *work)
 				if (!clk_set_parent(cpu_clk, cpu_lp_clk)) {
 					/*catch-up with governor target speed*/
 					tegra_cpu_set_speed_cap(NULL);
+					state_changed = true;
 				}
 			}
 			break;
@@ -169,8 +170,12 @@ static void tegra_cpuquiet_work_func(struct work_struct *work)
 
 	mutex_unlock(tegra3_cpu_lock);
 
-	if (update_cr_config)
+	if (state_changed && cpq_state == TEGRA_CPQ_SWITCH_TO_LP) {
+		cpuquiet_device_busy();
+	} else if (state_changed && cpq_state == TEGRA_CPQ_SWITCH_TO_G) {
 		apply_core_config();
+		cpuquiet_device_free();
+	}
 }
 
 static void min_max_constraints_workfunc(struct work_struct *work)
