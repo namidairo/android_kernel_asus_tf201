@@ -3,7 +3,7 @@
  *
  * CPU auto-hotplug for Tegra3 CPUs
  *
- * Copyright (c) 2011-2012, NVIDIA Corporation.
+ * Copyright (c) 2011-2012, NVIDIA Corporation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -41,7 +41,7 @@
 #define INITIAL_STATE		TEGRA_HP_DISABLED
 #define UP2G0_DELAY_MS		70
 #define UP2Gn_DELAY_MS		100
-#define DOWN_DELAY_MS		500
+#define DOWN_DELAY_MS		2000
 
 static struct mutex *tegra3_cpu_lock;
 
@@ -193,10 +193,38 @@ enum {
 
 #ifdef CONFIG_TEGRA_RUNNABLE_THREAD
 #define NR_FSHIFT	2
-static unsigned int nr_run_thresholds[] = {
+
+static unsigned int rt_profile_sel;
+
+/* avg run threads * 4 (e.g., 9 = 2.25 threads) */
+
+static unsigned int rt_profile_default[] = {
 /*      1,  2,  3,  4 - on-line cpus target */
-	5,  9, 10, UINT_MAX /* avg run threads * 4 (e.g., 9 = 2.25 threads) */
+	5,  9, 10, UINT_MAX
 };
+
+static unsigned int rt_profile_1[] = {
+/*      1,  2,  3,  4 - on-line cpus target */
+	8,  9, 10, UINT_MAX
+};
+
+static unsigned int rt_profile_2[] = {
+/*      1,  2,  3,  4 - on-line cpus target */
+	5,  13, 14, UINT_MAX
+};
+
+static unsigned int rt_profile_off[] = { /* disables runable thread */
+	0,  0,  0, UINT_MAX
+};
+
+static unsigned int *rt_profiles[] = {
+	rt_profile_default,
+	rt_profile_1,
+	rt_profile_2,
+	rt_profile_off
+};
+
+
 static unsigned int nr_run_hysteresis = 2;	/* 0.5 thread */
 static unsigned int nr_run_last;
 #endif
@@ -209,6 +237,7 @@ static noinline int tegra_cpu_speed_balance(void)
 	unsigned int nr_cpus = num_online_cpus();
 	unsigned int max_cpus = pm_qos_request(PM_QOS_MAX_ONLINE_CPUS) ? : 4;
 	unsigned int min_cpus = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
+#ifdef CONFIG_TEGRA_RUNNABLE_THREAD
 	unsigned int avg_nr_run = avg_nr_running();
 	unsigned int nr_run;
 
@@ -221,14 +250,17 @@ static noinline int tegra_cpu_speed_balance(void)
 	 * TEGRA_CPU_SPEED_BIASED to keep CPU core composition unchanged
 	 * TEGRA_CPU_SPEED_SKEWED to remove CPU core off-line
 	 */
-	for (nr_run = 1; nr_run < ARRAY_SIZE(nr_run_thresholds); nr_run++) {
-		unsigned int nr_threshold = nr_run_thresholds[nr_run - 1];
+
+	unsigned int *current_profile = rt_profiles[rt_profile_sel];
+	for (nr_run = 1; nr_run < ARRAY_SIZE(rt_profile_default); nr_run++) {
+		unsigned int nr_threshold = current_profile[nr_run - 1];
 		if (nr_run_last <= nr_run)
 			nr_threshold += nr_run_hysteresis;
 		if (avg_nr_run <= (nr_threshold << (FSHIFT - NR_FSHIFT)))
 			break;
 	}
 	nr_run_last = nr_run;
+#endif
 
 	if (((tegra_count_slow_cpus(skewed_speed) >= 2) ||
 #ifdef CONFIG_TEGRA_RUNNABLE_THREAD
@@ -271,11 +303,11 @@ static void tegra_auto_hotplug_work_func(struct work_struct *work)
 		if (cpu < nr_cpu_ids) {
 			up = false;
 		} else if (!is_lp_cluster() && !no_lp &&
-#ifndef CONFIG_TEGRA_RUNNABLE_THREAD
+#ifdef CONFIG_TEGRA_RUNNABLE_THREAD
 			   !pm_qos_request(PM_QOS_MIN_ONLINE_CPUS) &&
 			   ((now - last_change_time) >= down_delay)) {
 #else
-			!pm_qos_request(PM_QOS_MIN_ONLINE_CPUS)) {
+			   !pm_qos_request(PM_QOS_MIN_ONLINE_CPUS)) {
 #endif
 			if(!clk_set_parent(cpu_clk, cpu_lp_clk)) {
 				hp_stats_update(CONFIG_NR_CPUS, true);
@@ -567,7 +599,26 @@ static const struct file_operations hp_stats_fops = {
 	.llseek		= seq_lseek,
 	.release	= single_release,
 };
+#ifdef CONFIG_TEGRA_RUNNABLE_THREAD
+static int rt_bias_get(void *data, u64 *val)
+{
+	*val = rt_profile_sel;
+	return 0;
+}
+static int rt_bias_set(void *data, u64 val)
+{
+	if (val < ARRAY_SIZE(rt_profiles))
+		rt_profile_sel = (u32)val;
 
+	pr_debug("rt_profile_sel set to %d\nthresholds are now [%d, %d, %d]\n",
+		rt_profile_sel,
+		rt_profiles[rt_profile_sel][0],
+		rt_profiles[rt_profile_sel][1],
+		rt_profiles[rt_profile_sel][2]);
+	return 0;
+}
+DEFINE_SIMPLE_ATTRIBUTE(rt_bias_fops, rt_bias_get, rt_bias_set, "%llu\n");
+#endif
 static int min_cpus_get(void *data, u64 *val)
 {
 	*val = pm_qos_request(PM_QOS_MIN_ONLINE_CPUS);
@@ -617,7 +668,11 @@ static int __init tegra_auto_hotplug_debug_init(void)
 	if (!debugfs_create_file(
 		"stats", S_IRUGO, hp_debugfs_root, NULL, &hp_stats_fops))
 		goto err_out;
-
+#ifdef CONFIG_TEGRA_RUNNABLE_THREAD
+	if (!debugfs_create_file(
+		"core_bias", S_IRUGO, hp_debugfs_root, NULL, &rt_bias_fops))
+		goto err_out;
+#endif
 	return 0;
 
 err_out:
