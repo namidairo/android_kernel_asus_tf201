@@ -965,6 +965,7 @@ CONFIG_CAIF=y
 CONFIG_CAIF_NETDEV=y
 # CONFIG_CEPH_LIB is not set
 # CONFIG_NFC is not set
+CONFIG_UHID=y
 
 #
 # Device Drivers
