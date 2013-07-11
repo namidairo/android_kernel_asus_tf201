@@ -84,7 +84,7 @@ EXPORT_SYMBOL(flagLoadConfig);
 struct cali_check_data {
 	short ori[3];
 	short post[3];
-	short gain[3];
+	int gain[3];
 	int file_exist;
 };
 struct cali_check_data cali_chk;
@@ -108,7 +108,7 @@ static inline unsigned short little_u8_to_u16(unsigned char *p_u8)
 	return p_u8[0] | (p_u8[1] << 8);
 }
 
-static int access_calibration_file(short *gain)
+static int access_calibration_file(int *gain)
 {
 	char buf[256];
 	int ret = 0, ii = 0;
@@ -181,7 +181,10 @@ static ssize_t compass_cali_test(struct device *dev, struct device_attribute *de
 	//check the calculation form raw data and gain is correct or not
 	for (ii =0; ii <COMPASS_NUM_AXES; ii++)
 	{
-		val[ii] = (short)(cali_chk.ori[ii]*cali_chk.gain[ii]/100);
+		if (cali_chk.gain[ii] <= 0)
+			cali_chk.gain[ii] = 100;
+
+		val[ii] = (short)(cali_chk.ori[ii]*100/cali_chk.gain[ii]);
 		if (val[ii] != cali_chk.post[ii])
 			bufcnt += sprintf(localbuf,"axis-%d data compensation (%d) is NOT matched to the gain %d !\n",ii,val[ii],cali_chk.post[ii]);
 		else
@@ -798,7 +801,11 @@ static int ami306_read(void *mlsl_handle,
 		val[ii] -= AMI_STANDARD_OFFSET;
 
 		cali_chk.ori[ii] = val[ii];
-		val[ii] = (short)(val[ii]*cali_chk.gain[ii]/100);
+
+		if (cali_chk.gain[ii] <= 0)
+			cali_chk.gain[ii] = 100;
+
+		val[ii] = (short)(val[ii]*100/cali_chk.gain[ii]);
 		cali_chk.post[ii] = val[ii];
 
 		data[2 * ii] = val[ii] & 0xFF;
