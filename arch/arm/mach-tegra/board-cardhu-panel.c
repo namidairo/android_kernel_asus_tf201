@@ -1270,7 +1270,7 @@ static struct tegra_dc_out cardhu_disp1_out_P1801 = {
 	.parent_clk	= "pll_d_out0",
 
 	.depth		= 18,
-	.dither		= TEGRA_DC_ORDERED_DITHER,
+	.dither		= TEGRA_DC_ERRDIFF_DITHER,
 
 	.modes		= cardhu_panel_modes_P1801,
 	.n_modes	= ARRAY_SIZE(cardhu_panel_modes_P1801),
