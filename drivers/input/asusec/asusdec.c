@@ -1455,7 +1455,7 @@ static void asusdec_kp_key(void){
 	}
 
         // Now we are in kp_fn_mode?. Then kp_sci will be mapped to Fn keys
-        bool metastate
+        bool metastate =
                 (
                 scancode == ASUSDEC_KEYPAD_LEFTCTRL || scancode == ASUSDEC_KEYPAD_RIGHTCTRL ||
                 scancode == ASUSDEC_KEYPAD_KEY_LEFTSHIFT || scancode == ASUSDEC_KEYPAD_KEY_RIGHTSHIFT ||
