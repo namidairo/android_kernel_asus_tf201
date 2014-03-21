@@ -1791,6 +1791,28 @@ static inline void clear_nlink(struct inode *inode)
 	inode->i_nlink = 0;
 }
 
+/**
+ * set_nlink - directly set an inode's link count
+ * @inode: inode
+ * @nlink: new nlink (should be non-zero)
+ *
+ * This is a low-level filesystem helper to replace any
+ * direct filesystem manipulation of i_nlink.
+ */
+static inline void set_nlink(struct inode *inode, unsigned int nlink)
+{
+	if (!nlink) {
+		clear_nlink(inode);
+	} else {
+		/* Yes, some filesystems do change nlink from zero to one */
+		/* below commented due to linux 3.1.10 not supporting s_remove_count */
+		//if (inode->i_nlink == 0)
+		//	atomic_long_dec(&inode->i_sb->s_remove_count);
+
+		inode->i_nlink = nlink;
+	}
+}
+
 static inline void inode_dec_link_count(struct inode *inode)
 {
 	drop_nlink(inode);
