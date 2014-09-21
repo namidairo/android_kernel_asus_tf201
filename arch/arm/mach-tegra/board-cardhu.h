@@ -284,6 +284,10 @@ void tegra_usb3_utmip_host_unregister(struct platform_device *pdev);
 #define TF500T_GYRO_ORIENTATION		{ 0, -1, 0, 1, 0, 0, 0, 0, 1 }
 #define TF500T_COMPASS_ORIENTATION	{ 0, -1, 0, 1, 0, 0, 0, 0, 1 }
 
+//Sensors orientation matrix for ME301T and ME301TL
+#define ME301T_GYRO_ORIENTATION		{ 0, 1, 0, 1, 0, 0, 0, 0, -1 }
+#define ME301T_COMPASS_ORIENTATION	{ 0, 1, 0, 1, 0, 0, 0, 0, -1 }
+
 /* Kionix Accel sensor Definitions*/
 #define KIONIX_ACCEL_NAME	"KXT_9"
 #define KIONIX_ACCEL_IRQ_GPIO	TEGRA_GPIO_PO5

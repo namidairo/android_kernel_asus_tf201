@@ -395,18 +395,18 @@ static int kxtf9_suspend(void *mlsl_handle,
 		LOG_RESULT_LOCATION(result);
 		return result;
 	}
-	/* DATA_CTRL_REG */
-	result = inv_serial_single_write(mlsl_handle, pdata->address,
-					 KXTF9_DATA_CTRL_REG,
-					 private_data->suspend.reg_odr);
-	if (result) {
-		LOG_RESULT_LOCATION(result);
-		return result;
-	}
 	/* WUF_TIMER */
 	result = inv_serial_single_write(mlsl_handle, pdata->address,
 					 KXTF9_WUF_TIMER,
 					 private_data->suspend.reg_dur);
+	if (result) {
+		LOG_RESULT_LOCATION(result);
+		return result;
+	}
+	/* DATA_CTRL_REG */
+	result = inv_serial_single_write(mlsl_handle, pdata->address,
+					 KXTF9_DATA_CTRL_REG,
+					 private_data->suspend.reg_odr);
 	if (result) {
 		LOG_RESULT_LOCATION(result);
 		return result;
@@ -466,14 +466,6 @@ static int kxtf9_resume(void *mlsl_handle,
 		LOG_RESULT_LOCATION(result);
 		return result;
 	}
-	/* DATA_CTRL_REG */
-	result = inv_serial_single_write(mlsl_handle, pdata->address,
-					 KXTF9_DATA_CTRL_REG,
-					 private_data->resume.reg_odr);
-	if (result) {
-		LOG_RESULT_LOCATION(result);
-		return result;
-	}
 	/* WUF_TIMER */
 	result = inv_serial_single_write(mlsl_handle, pdata->address,
 					 KXTF9_WUF_TIMER,
@@ -491,12 +483,38 @@ static int kxtf9_resume(void *mlsl_handle,
 		LOG_RESULT_LOCATION(result);
 		return result;
 	}
+
+	/* back to normal state then to writing state
+	 * again to isolate data_ctrl_reg change */
+	result = inv_serial_single_write(mlsl_handle, pdata->address,
+					 KXTF9_CTRL_REG1, 0x40);
+	if (result) {
+		LOG_RESULT_LOCATION(result);
+		return result;
+	}
+	/* DATA_CTRL_REG */
+	result = inv_serial_single_write(mlsl_handle, pdata->address,
+					 KXTF9_DATA_CTRL_REG,
+					 private_data->resume.reg_odr);
+	if (result) {
+		LOG_RESULT_LOCATION(result);
+		return result;
+	}
+	/* Normal operation  */
+	result = inv_serial_single_write(mlsl_handle, pdata->address,
+					 KXTF9_CTRL_REG1,
+					 private_data->resume.ctrl_reg1);
+	if (result) {
+		LOG_RESULT_LOCATION(result);
+		return result;
+	}
 	result = inv_serial_read(mlsl_handle, pdata->address,
 				 KXTF9_INT_REL, 1, &data);
 	if (result) {
 		LOG_RESULT_LOCATION(result);
 		return result;
 	}
+	msleep(80);
 	printk("kxtf9: ON -\n");
 	return INV_SUCCESS;
 }
@@ -516,6 +534,14 @@ static int kxtf9_init(void *mlsl_handle,
 		return INV_ERROR_MEMORY_EXAUSTED;
 
 	/* RAM reset */
+	/* Reset */
+	result = inv_serial_single_write(mlsl_handle, pdata->address,
+					 KXTF9_CTRL_REG3, 0xcd);
+	if (result) {
+		LOG_RESULT_LOCATION(result);
+		return result;
+	}
+	msleep(20);
 	/* Fastest Reset */
 	result = inv_serial_single_write(mlsl_handle, pdata->address,
 					 KXTF9_CTRL_REG1, 0x40);
@@ -526,13 +552,6 @@ static int kxtf9_init(void *mlsl_handle,
 	/* Fastest Reset */
 	result = inv_serial_single_write(mlsl_handle, pdata->address,
 					 KXTF9_DATA_CTRL_REG, 0x36);
-	if (result) {
-		LOG_RESULT_LOCATION(result);
-		return result;
-	}
-	/* Reset */
-	result = inv_serial_single_write(mlsl_handle, pdata->address,
-					 KXTF9_CTRL_REG3, 0xcd);
 	if (result) {
 		LOG_RESULT_LOCATION(result);
 		return result;

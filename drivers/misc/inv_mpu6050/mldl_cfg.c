@@ -47,6 +47,7 @@
 #define WAKE_UP 7
 #define RESET   1
 #define STANDBY 1
+#define REG_PWR_MGMT_1_SLEEP_ON 0x40
 
 /* -------------------------------------------------------------------------- */
 
@@ -503,23 +504,38 @@ static int mpu60xx_pwr_mgmt(struct mldl_cfg *mldl_cfg,
 				    void *mlsl_handle,
 				    unsigned int reset, unsigned long sensors)
 {
+	unsigned char data;
 	unsigned char pwr_mgmt[2];
 	unsigned char pwr_mgmt_prev[2];
+	unsigned char prod_ver = 0x00;
+	int reset_counter = 0;
 	int result;
 	int sleep = !(sensors & (INV_THREE_AXIS_GYRO | INV_THREE_AXIS_ACCEL
 				| INV_DMP_PROCESSOR));
 
 	if (reset) {
-		MPL_LOGI("Reset MPU6050 B1\n");
-		result = inv_mpu6050_serial_single_write(
-			mlsl_handle, mldl_cfg->mpu_chip_info->addr,
-			MPUREG_PWR_MGMT_1, BIT_H_RESET);
-		if (result) {
-			LOG_RESULT_LOCATION(result);
-			return result;
+		/* reset: retry 25 times at most, may take 15 ms ~ 375 ms */
+		while (++reset_counter <= 25) {
+			MPL_LOGI("Reset MPU6050 B1, trial: %2d\n", reset_counter);
+			result = inv_mpu6050_serial_single_write(
+					mlsl_handle, mldl_cfg->mpu_chip_info->addr,
+					MPUREG_PWR_MGMT_1, BIT_H_RESET);
+			if (result) {
+				LOG_RESULT_LOCATION(result);
+				return result;
+			}
+			msleep(15);
+			result = inv_mpu6050_serial_read(mlsl_handle, mldl_cfg->mpu_chip_info->addr,
+					MPUREG_PRODUCT_ID, 1, &prod_ver);
+			if (result) {
+				LOG_RESULT_LOCATION(result);
+				return result;
+			}
+			if (0 != prod_ver) {
+				mldl_cfg->inv_mpu_state->status &= ~MPU_GYRO_IS_BYPASSED;
+				break;
+			}
 		}
-		mldl_cfg->inv_mpu_state->status &= ~MPU_GYRO_IS_BYPASSED;
-		msleep(15);
 	}
 
 	/* NOTE : reading both PWR_MGMT_1 and PWR_MGMT_2 for efficiency because
@@ -1805,6 +1821,16 @@ int inv_mpu6050_suspend(struct mldl_cfg *mldl_cfg,
 		result = mpu_set_i2c_bypass(
 			mldl_cfg, gyro_handle,
 			!(mldl_cfg->inv_mpu_state->i2c_slaves_enabled));
+		if (result) {
+			LOG_RESULT_LOCATION(result);
+			return result;
+		}
+	}
+	/* Disable irq when suspend all sensors */
+	if (sensors == INV_ALL_SENSORS) {
+		result = inv_mpu6050_serial_single_write(
+			gyro_handle, mldl_cfg->mpu_chip_info->addr,
+			MPUREG_INT_ENABLE, 0);
 		if (result) {
 			LOG_RESULT_LOCATION(result);
 			return result;
