@@ -30,7 +30,9 @@
 
 struct wl_priv;
 extern u32 wl_dbg_level;
+
 typedef struct wifi_p2p_ie wifi_wfd_ie_t;
+
 /* Enumeration of the usages of the BSSCFGs used by the P2P Library.  Do not
  * confuse this with a bsscfg index.  This value is an index into the
  * saved_ie[] array of structures which in turn contains a bsscfg index field.
@@ -121,22 +123,22 @@ enum wl_cfgp2p_status {
 #define CFGP2P_ERR(args)									\
 	do {										\
 		if (wl_dbg_level & WL_DBG_ERR) {				\
-			printf(KERN_ERR "CFGP2P-ERROR) %s : ", __func__);	\
-			printf args;						\
+			printk(KERN_ERR "CFGP2P-ERROR) %s : ", __func__);	\
+			printk args;						\
 		}									\
 	} while (0)
 #define	CFGP2P_INFO(args)									\
 	do {										\
 		if (wl_dbg_level & WL_DBG_INFO) {				\
-			printf(KERN_ERR "CFGP2P-INFO) %s : ", __func__);	\
-			printf args;						\
+			printk(KERN_ERR "CFGP2P-INFO) %s : ", __func__);	\
+			printk args;						\
 		}									\
 	} while (0)
 #define	CFGP2P_DBG(args)								\
 	do {									\
 		if (wl_dbg_level & WL_DBG_DBG) {			\
-			printf(KERN_ERR "CFGP2P-DEBUG) %s :", __func__);	\
-			printf args;							\
+			printk(KERN_ERR "CFGP2P-DEBUG) %s :", __func__);	\
+			printk args;							\
 		}									\
 	} while (0)
 
@@ -251,6 +253,9 @@ wl_cfgp2p_set_p2p_ps(struct wl_priv *wl, struct net_device *ndev, char* buf, int
 
 extern u8 *
 wl_cfgp2p_retreive_p2pattrib(void *buf, u8 element_id);
+
+extern u8*
+wl_cfgp2p_find_attrib_in_all_p2p_Ies(u8 *parse, u32 len, u32 attrib);
 
 extern u8 *
 wl_cfgp2p_retreive_p2p_dev_addr(wl_bss_info_t *bi, u32 bi_length);

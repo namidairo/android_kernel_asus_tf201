@@ -356,11 +356,11 @@ wl_cfgp2p_ifadd(struct wl_priv *wl, struct ether_addr *mac, u8 if_type,
 		wl->ioctl_buf, WLC_IOCTL_MAXLEN, &wl->ioctl_buf_sync);
 
 	if (unlikely(err < 0)) {
-		printf("'wl p2p_ifadd' error %d\n", err);
+		printk("'wl p2p_ifadd' error %d\n", err);
 	} else if (if_type == WL_P2P_IF_GO) {
 		err = wldev_ioctl(ndev, WLC_SET_SCB_TIMEOUT, &scb_timeout, sizeof(u32), true);
 		if (unlikely(err < 0))
-			printf("'wl scb_timeout' error %d\n", err);
+			printk("'wl scb_timeout' error %d\n", err);
 	}
 
 	return err;
@@ -383,7 +383,7 @@ wl_cfgp2p_ifdel(struct wl_priv *wl, struct ether_addr *mac)
 	ret = wldev_iovar_setbuf(netdev, "p2p_ifdel", mac, sizeof(*mac),
 		wl->ioctl_buf, WLC_IOCTL_MAXLEN, &wl->ioctl_buf_sync);
 	if (unlikely(ret < 0)) {
-		printf("'wl p2p_ifdel' error %d\n", ret);
+		printk("'wl p2p_ifdel' error %d\n", ret);
 	}
 	return ret;
 }
@@ -416,11 +416,11 @@ wl_cfgp2p_ifchange(struct wl_priv *wl, struct ether_addr *mac, u8 if_type,
 		wl->ioctl_buf, WLC_IOCTL_MAXLEN, &wl->ioctl_buf_sync);
 
 	if (unlikely(err < 0)) {
-		printf("'wl p2p_ifupd' error %d\n", err);
+		printk("'wl p2p_ifupd' error %d\n", err);
 	} else if (if_type == WL_P2P_IF_GO) {
 		err = wldev_ioctl(netdev, WLC_SET_SCB_TIMEOUT, &scb_timeout, sizeof(u32), true);
 		if (unlikely(err < 0))
-			printf("'wl scb_timeout' error %d\n", err);
+			printk("'wl scb_timeout' error %d\n", err);
 	}
 	return err;
 }
@@ -641,8 +641,8 @@ wl_cfgp2p_enable_discovery(struct wl_priv *wl, struct net_device *dev,
 	}
 set_ie:
 	ret = wl_cfgp2p_set_management_ie(wl, dev,
-	            wl_to_p2p_bss_bssidx(wl, P2PAPI_BSSCFG_DEVICE),
-	            VNDR_IE_PRBREQ_FLAG, ie, ie_len);
+				wl_to_p2p_bss_bssidx(wl, P2PAPI_BSSCFG_DEVICE),
+				VNDR_IE_PRBREQ_FLAG, ie, ie_len);
 
 	if (unlikely(ret < 0)) {
 		CFGP2P_ERR(("set probreq ie occurs error %d\n", ret));
@@ -846,10 +846,11 @@ exit:
 /* Check whether the given IE looks like WFA P2P IE. */
 #define wl_cfgp2p_is_p2p_ie(ie, tlvs, len)	wl_cfgp2p_has_ie(ie, tlvs, len, \
 		(const uint8 *)WFA_OUI, WFA_OUI_LEN, WFA_OUI_TYPE_P2P)
-/* Check whether the given IE looks like WFA WFDisplay IE. */
-#define WFA_OUI_TYPE_WFD	0x0a	/* WiFi Display OUI TYPE */
+	/* Check whether the given IE looks like WFA WFDisplay IE. */
+#define WFA_OUI_TYPE_WFD	0x0a			/* WiFi Display OUI TYPE */
 #define wl_cfgp2p_is_wfd_ie(ie, tlvs, len)	wl_cfgp2p_has_ie(ie, tlvs, len, \
-		(const uint8 *)WFA_OUI, WFA_OUI_LEN, WFA_OUI_TYPE_WFD)
+				(const uint8 *)WFA_OUI, WFA_OUI_LEN, WFA_OUI_TYPE_WFD)
+
 /* Delete and Set a management vndr ie to firmware
  * Parameters:
  * @wl       : wl_private data
@@ -932,8 +933,7 @@ wl_cfgp2p_set_management_ie(struct wl_priv *wl, struct net_device *ndev, s32 bss
 				return -1;
 		}
 		bssidx = 0;
-	} else if (bssidx == -1 && (wl_get_mode_by_netdev(wl, ndev) == WL_MODE_BSS ||
-				    wl_get_mode_by_netdev(wl, ndev) == WL_MODE_IBSS)) {
+	} else if (bssidx == -1 && wl_get_mode_by_netdev(wl, ndev) == WL_MODE_BSS) {
 		switch (pktflag) {
 			case VNDR_IE_PRBREQ_FLAG :
 				mgmt_ie_buf = wl->sta_info->probe_req_ie;
@@ -1113,13 +1113,14 @@ wl_cfgp2p_find_p2pie(u8 *parse, u32 len)
 	}
 	return NULL;
 }
+
 wifi_wfd_ie_t *
 wl_cfgp2p_find_wfdie(u8 *parse, u32 len)
 {
 	bcm_tlv_t *ie;
 
 	while ((ie = bcm_parse_tlvs(parse, (int)len, DOT11_MNG_VS_ID))) {
-	if (wl_cfgp2p_is_wfd_ie((uint8*)ie, &parse, &len)) {
+		if (wl_cfgp2p_is_wfd_ie((uint8*)ie, &parse, &len)) {
 			return (wifi_wfd_ie_t *)ie;
 		}
 	}
@@ -1229,6 +1230,10 @@ wl_cfgp2p_listen_complete(struct wl_priv *wl, struct net_device *ndev,
 		}
 		cfg80211_remain_on_channel_expired(ndev, wl->last_roc_id, &wl->remain_on_chan,
 		    wl->remain_on_chan_type, GFP_KERNEL);
+		if (wl_add_remove_eventmsg(wl_to_prmry_ndev(wl),
+			WLC_E_P2P_PROBREQ_MSG, false) != BCME_OK) {
+			CFGP2P_ERR((" failed to unset WLC_E_P2P_PROPREQ_MSG\n"));
+		}
 	} else
 		wl_clr_p2p_status(wl, LISTEN_EXPIRED);
 
@@ -1320,6 +1325,9 @@ wl_cfgp2p_discover_listen(struct wl_priv *wl, s32 channel, u32 duration_ms)
 	} else
 		wl_clr_p2p_status(wl, LISTEN_EXPIRED);
 
+	if (wl_add_remove_eventmsg(wl_to_prmry_ndev(wl), WLC_E_P2P_PROBREQ_MSG, true) != BCME_OK) {
+		CFGP2P_ERR((" failed to set WLC_E_P2P_PROPREQ_MSG\n"));
+	}
 	wl_cfgp2p_set_p2p_mode(wl, WL_P2P_DISC_ST_LISTEN, channel, (u16) duration_ms,
 	            wl_to_p2p_bss_bssidx(wl, P2PAPI_BSSCFG_DEVICE));
 	_timer = &wl->p2p->listen_timer;
@@ -1750,10 +1758,16 @@ wl_cfgp2p_set_p2p_ps(struct wl_priv *wl, struct net_device *ndev, char* buf, int
 
 		if (legacy_ps != -1) {
 			s32 pm = legacy_ps ? PM_MAX : PM_OFF;
+#if defined(SUPPORT_PM2_ONLY)
+			if (pm == PM_MAX)
+				pm = PM_FAST;
+#endif /* SUPPORT_PM2_ONLY */
 			ret = wldev_ioctl(wl_to_p2p_bss_ndev(wl, P2PAPI_BSSCFG_CONNECTION),
 				WLC_SET_PM, &pm, sizeof(pm), true);
 			if (unlikely(ret)) {
 				CFGP2P_ERR(("error (%d)\n", ret));
+			} else {
+				wl_cfg80211_update_power_mode(ndev);
 			}
 		}
 	}
@@ -1816,6 +1830,38 @@ wl_cfgp2p_retreive_p2pattrib(void *buf, u8 element_id)
 }
 
 #define P2P_GROUP_CAPAB_GO_BIT	0x01
+
+u8*
+wl_cfgp2p_find_attrib_in_all_p2p_Ies(u8 *parse, u32 len, u32 attrib)
+{
+	bcm_tlv_t *ie;
+	u8* pAttrib;
+
+	CFGP2P_INFO(("Starting parsing parse %p attrib %d remaining len %d ", parse, attrib, len));
+	while ((ie = bcm_parse_tlvs(parse, (int)len, DOT11_MNG_VS_ID))) {
+		if (wl_cfgp2p_is_p2p_ie((uint8*)ie, &parse, &len) == TRUE) {
+			/* Have the P2p ie. Now check for attribute */
+			if ((pAttrib = wl_cfgp2p_retreive_p2pattrib(parse, attrib)) != NULL) {
+				CFGP2P_INFO(("P2P attribute %d was found at parse %p",
+					attrib, parse));
+				return pAttrib;
+			}
+			else {
+				parse += (ie->len + TLV_HDR_LEN);
+				len -= (ie->len + TLV_HDR_LEN);
+				CFGP2P_INFO(("P2P Attribute %d not found Moving parse"
+					" to %p len to %d", attrib, parse, len));
+			}
+		}
+		else {
+			/* It was not p2p IE. parse will get updated automatically to next TLV */
+			CFGP2P_INFO(("IT was NOT P2P IE parse %p len %d", parse, len));
+		}
+	}
+	CFGP2P_ERR(("P2P attribute %d was NOT found", attrib));
+	return NULL;
+}
+
 u8 *
 wl_cfgp2p_retreive_p2p_dev_addr(wl_bss_info_t *bi, u32 bi_length)
 {
@@ -1824,12 +1870,8 @@ wl_cfgp2p_retreive_p2p_dev_addr(wl_bss_info_t *bi, u32 bi_length)
 	bool p2p_go	= 0;
 	u8 *ptr = NULL;
 
-	if (!(p2p_ie = wl_cfgp2p_find_p2pie(((u8 *) bi) + bi->ie_offset, bi->ie_length))) {
-		WL_ERR(("P2P IE not found"));
-		return NULL;
-	}
-
-	if (!(capability = wl_cfgp2p_retreive_p2pattrib(p2p_ie, P2P_SEID_P2P_INFO))) {
+	if ((capability = wl_cfgp2p_find_attrib_in_all_p2p_Ies(((u8 *) bi) + bi->ie_offset,
+		bi->ie_length, P2P_SEID_P2P_INFO)) == NULL) {
 		WL_ERR(("P2P Capability attribute not found"));
 		return NULL;
 	}
@@ -1922,7 +1964,7 @@ wl_cfgp2p_register_ndev(struct wl_priv *wl)
 		goto fail;
 	}
 
-	printf("%s: P2P Interface Registered\n", net->name);
+	printk("%s: P2P Interface Registered\n", net->name);
 
 	return ret;
 fail:

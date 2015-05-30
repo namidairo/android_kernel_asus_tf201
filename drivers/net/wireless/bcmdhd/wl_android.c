@@ -375,7 +375,7 @@ int wl_android_wifi_on(struct net_device *dev)
 {
 	int ret = 0;
 
-	printf("%s in\n", __FUNCTION__);
+	printk("%s in\n", __FUNCTION__);
 	if (!dev) {
 		DHD_ERROR(("%s: dev is null\n", __FUNCTION__));
 		return -EINVAL;
@@ -402,7 +402,7 @@ int wl_android_wifi_off(struct net_device *dev)
 {
 	int ret = 0;
 
-	printf("%s in\n", __FUNCTION__);
+	printk("%s in\n", __FUNCTION__);
 	if (!dev) {
 		DHD_TRACE(("%s: dev is null\n", __FUNCTION__));
 		return -EINVAL;
@@ -645,9 +645,6 @@ void wl_android_post_init(void)
 {
 	if (!dhd_download_fw_on_driverload) {
 		/* Call customer gpio to turn off power with WL_REG_ON signal */
-#if !defined(OOB_INTR_ONLY)
-		sdioh_stop(NULL);
-#endif /* !defined(OOB_INTR_ONLY) */
 		dhd_customer_gpio_wlan_ctrl(WLAN_RESET_OFF);
 		g_wifi_on = 0;
 	}
@@ -739,7 +736,7 @@ int wifi_set_power(int on, unsigned long msec)
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2, 6, 35))
 int wifi_get_mac_addr(unsigned char *buf)
 {
-	DHD_ERROR(("%s\n", __FUNCTION__));
+	DHD_TRACE(("%s\n", __FUNCTION__));
 	if (!buf)
 		return -EINVAL;
 	if (wifi_control_data && wifi_control_data->get_mac_addr) {

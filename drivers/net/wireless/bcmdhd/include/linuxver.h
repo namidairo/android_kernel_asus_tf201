@@ -477,7 +477,7 @@ typedef struct {
 
 
 #ifdef DHD_DEBUG
-#define DBG_THR(x) printf x
+#define DBG_THR(x) printk x
 #else
 #define DBG_THR(x)
 #endif
