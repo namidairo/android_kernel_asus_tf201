@@ -50,8 +50,6 @@
 #define START_NORMAL    (HZ)
 #define START_HEAVY     (HZ)
 
-#define CAL_ALS_PATH "/data/lightsensor/AL3010_Config.ini"
-
 #define ALS_CAM_POWER_2V85_EN_GPIO TEGRA_GPIO_PR7
 
 bool flagLoadAl3010Config = false;
@@ -304,30 +302,8 @@ static int al3010_get_reg_value(struct i2c_client *client)
 
 static int al3010_update_calibration()
 {
-	char buf[256];
-	int calibration_value = 0;
-	mm_segment_t oldfs;
-	oldfs=get_fs();
-	set_fs(get_ds());
-	memset(buf, 0, sizeof(u8)*256);
-	struct file *fp = NULL;
-	fp=filp_open(CAL_ALS_PATH, O_RDONLY, 0);
-	if (!IS_ERR(fp)) {
-		int ret = 0;
-		ret = fp->f_op->read(fp, buf, sizeof(buf), &fp->f_pos);
-		//printk("light sensor info : ret = %d , f_pos = %d",ret ,fp->f_pos);
-		//printk("light sensor info : AL3010_Config content is :%s\n", buf);
-		sscanf(buf,"%d\n", &calibration_value);
-		//printk("light sensor info : calibration_value= %d\n",calibration_value);
-		if(calibration_value > 0){
-			calibration_regs = calibration_value;
-		}
-		filp_close(fp, NULL);
-		set_fs(oldfs);
-		return 0;
-	}else{
-		return -1;
-	}
+	pr_err("No, NVIDIA, in fact you CANNOT read from userspace filesystems in the kernel - dmitrygr!\n");
+	return 0;
 }
 
 /*
@@ -483,12 +459,32 @@ static ssize_t al3010_show_default_lux(struct device *dev,
 	return sprintf(buf, "%d\n", show_default_lux_value);
 }
 
+
+/* calibration */
+static ssize_t al3010_show_calib(struct device *dev, struct device_attribute *attr, char *buf)
+{
+        return sprintf(buf, "%u\n", calibration_regs);
+}
+
+static ssize_t al3010_store_calib(struct device *dev, struct device_attribute *attr, const char *buf, size_t count)
+{
+	unsigned long val;
+
+	int err = kstrtoul_from_user(buf, count, 10, &val);
+	if (err)
+		return err;
+
+	calibration_regs = val;
+	return count;
+}
+
 static SENSOR_DEVICE_ATTR(show_reg, 0644, al3010_show_reg, NULL, 1);
 static SENSOR_DEVICE_ATTR(show_lux, 0644, al3010_show_lux, NULL, 2);
 static SENSOR_DEVICE_ATTR(lightsensor_status, 0644, al3010_show_power_state, NULL, 3);
 static SENSOR_DEVICE_ATTR(refresh_cal, 0644, al3010_refresh_calibration, NULL, 4);
 static SENSOR_DEVICE_ATTR(show_revise_lux, 0644, al3010_show_revise_lux, NULL, 5);
 static SENSOR_DEVICE_ATTR(show_default_lux, 0644, al3010_show_default_lux, NULL, 6);
+static SENSOR_DEVICE_ATTR(calibration, 0644, al3010_show_calib, al3010_store_calib, 8);
 
 static struct attribute *al3010_attributes[] = {
 	&sensor_dev_attr_show_reg.dev_attr.attr,
@@ -497,6 +493,11 @@ static struct attribute *al3010_attributes[] = {
 	&sensor_dev_attr_refresh_cal.dev_attr.attr,
 	&sensor_dev_attr_show_revise_lux.dev_attr.attr,
 	&sensor_dev_attr_show_default_lux.dev_attr.attr,
+
+	//this code used to directly open "/data/lightsensor/AL3010_Config.ini" to read calibration.
+	// Needless to say i was not amused. Fixing it by adding a sysfs node and writing to it from
+	//userspace as is proper - dmitrygr
+	&sensor_dev_attr_calibration.dev_attr.attr,
 	NULL
 };
 
